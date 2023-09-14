@@ -1,0 +1,23 @@
+#Mule Dev
+salesforce.username: integration.mulesoft@hg.com.euqa
+salesforce.securityToken: "![CHQOj8n3aHs7pvrsOxdoiUqeyygJesuJL+1cR5BZiFo=]"
+salesforce.password: "![p1+HrqQU++NhZ1fKSFZZgQ==]"
+salesforce.url: https://test.salesforce.com/services/Soap/u/56.0
+
+ 
+#HTTP
+http.host: "0.0.0.0"
+http.port: "8082"
+http.Usagepath: "/api/Usage"
+
+#SFTP
+sftp.Host: '10.100.101.111'
+sftp.Port: '8020'
+sftp.UserName: 'SA_SFTP_MS_CAY_SF'
+sftp.Password: "![jMYbJaYLby3rig4ZPVlg/A==]"
+sftp.WorkingDirectory: '/D:/MS_CAY_SF/caygold/Testing/'
+sftp.ArchiveFilePath: '/D:/MS_CAY_SF/caygold/TestArchive/'
+sftp.ErrorFilePath: '/D:/MS_CAY_SF/caygold/Testing/Error/'
+sftp.UsagePattern: "SF_usage*"
+sftp.UsageCron: "0 0 12 * * ?"
+

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:batch="http://www.mulesoft.org/schema/mule/batch"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<flow name="UsageFlow" doc:id="5721a6ac-1780-4316-9a90-0e862c0712ef" initialState="started" >
+	<scheduler doc:name="Scheduler" doc:id="e520b8cf-b33d-465b-9d9c-244a6ef9ce9c" >
+			<scheduling-strategy >
+				<cron expression="${sftp.UsageCron}"/>
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="StartLog" doc:id="2dad9254-810d-4790-82bd-ea9576e904a8" message='#["*********hg-cyt-sf-usage-app reprocess started******"]'/>
+		<set-variable value="#[uuid()]" doc:name="messageID" doc:id="a0c466e2-219f-4b6b-b0a2-05831f369785" variableName="messageID" />
+		<set-variable value='#[message.attributes.flowType == "Normal"]' doc:name="flowType" doc:id="8af375f8-593f-425b-bff7-fc8685702b8f" variableName="flowType"/>
+		<set-variable value="#[flow.name]" doc:name="flowName" doc:id="07ec32d2-ef8c-4e6c-ae71-77c922bc8e40" variableName="flowName" />
+		<sftp:list doc:name="List" doc:id="ed5c01c2-7749-419a-b5eb-0fad0013fa47" config-ref="SFTP_Config" directoryPath="${sftp.ReprocessWorkingDirectory}" >
+			<sftp:matcher filenamePattern="${sftp.UsagePattern}" directories="EXCLUDE" />
+		</sftp:list>
+		<ee:transform doc:name="Transform Message" doc:id="16f688b6-ff8f-488e-b13d-909ae53e0d36">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="No_of_files" doc:id="a156d716-1405-4ccb-8f30-1b8a9d9ea5d1" message="No of files listed=#[sizeOf(payload)]" />
+		<foreach doc:name="For Each" doc:id="abc90597-cb83-4a3d-b314-3ebfa865cdcc" >
+			<logger level="INFO" doc:name="Logger" doc:id="4ee8336e-5e4d-46ff-a1a2-e11dcef0a080" message="messageID=#[vars.messageID] file is read from Cayanta  SFTP with name as #[attributes.fileName] and Sizeof Payload: #[sizeOf(payload)] " />
+			<set-variable value="#[attributes.fileName]" doc:name="fileName" doc:id="4eeaa98e-e873-4e22-b971-33a895bef38d" variableName="fileName" />
+			<set-variable value="#[attributes.path]" doc:name="filePath" doc:id="014559ad-6afd-4728-9122-5c6ddbacc219" variableName="filePath" />
+			<choice doc:name="Is_Records_available?" doc:id="3c973974-e37a-43b7-bdc3-e4483e8b0a4c" >
+				<when expression="#[!isEmpty(payload)]">
+					<async doc:name="Async" doc:id="61f7c38f-a266-42fc-bd8c-b1f73420b56d" >
+						<flow-ref doc:name="UsageSFDCFlow" doc:id="f9b28459-5918-4c9d-b0e8-2aa077fb2694" name="UsageSFDCFlow" />
+					</async>
+				</when>
+				<otherwise >
+					<logger level="INFO" doc:name="Logger" doc:id="2cb80db4-edf6-404b-a352-c4a622f6dc1f" message="MessageID=#[vars.messageID] No data found in Cayanta. Further processing stopped" />
+				</otherwise>
+			</choice>
+			<sftp:move doc:name="MoveArchive" doc:id="595a87b1-ec03-4974-a64e-dfa41705a02b" config-ref="SFTP_Config" sourcePath="#[vars.filePath]" targetPath="${sftp.ReprocessArchiveFilePath}" overwrite="true" />
+		</foreach>
+	</flow>
+	<flow name="UsageReprocessingFlow" doc:id="f8cc13cc-da4b-4103-8611-87c3070397e0" initialState="started">
+		<scheduler doc:name="Scheduler" doc:id="1131f7a4-7574-4b15-b736-1a36a53c8cd0">
+			<scheduling-strategy>
+				<cron expression="${sftp.UsageCron}" />
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="StartLog" doc:id="8e91c87c-b415-46c2-acbe-0ad3d9397f87" message='#["*********hg-cyt-sf-usage-app started******"]' />
+		<set-variable value="#[uuid()]" doc:name="messageID" doc:id="db919e79-d696-400e-b648-953fd3ac84e9" variableName="messageID" />
+		<set-variable value='#[message.attributes.flowType == "Normal"]' doc:name="flowType" doc:id="38e21706-53c5-49c3-a41b-e5229b2c2c5d" variableName="flowType" />
+		<set-variable value="#[flow.name]" doc:name="flowName" doc:id="d0df9bce-56c6-439f-90cc-8f735abb12b8" variableName="flowName" />
+		<sftp:list doc:name="List" doc:id="5e95fc25-7ced-41db-9fee-a1ef04e05078" config-ref="SFTP_Config" directoryPath="${sftp.ReprocessWorkingDirectory}">
+			<sftp:matcher filenamePattern="${sftp.UsagePattern}" directories="EXCLUDE" />
+		</sftp:list>
+		<logger level="INFO" doc:name="No_of_files" doc:id="f1affdd8-fc87-41fa-9bd3-b8fab66774cd" message="No of files listed=#[sizeOf(payload)]" />
+		<foreach doc:name="For Each" doc:id="5a0f38dc-80b4-42f1-9e97-732d0b884d8d">
+			<logger level="INFO" doc:name="Logger" doc:id="63090efc-6284-4b48-a4b6-dbcbe6b749ed" message="messageID=#[vars.messageID] file is read from Cayanta  SFTP with name as #[attributes.fileName] and Sizeof Payload: #[sizeOf(payload)] " />
+			<set-variable value="#[attributes.fileName]" doc:name="fileName" doc:id="ae64a789-b25e-4220-ab1f-b1cad7dc30f3" variableName="fileName" />
+			<set-variable value="#[attributes.path]" doc:name="filePath" doc:id="5473a9ac-2534-4137-b674-9379df8213bc" variableName="filePath" />
+			<choice doc:name="Is_Records_available?" doc:id="d4e88346-5a48-45b5-b5d2-49558f66db96">
+				<when expression="#[!isEmpty(payload)]">
+					<async doc:name="Async" doc:id="2f351e9e-8c37-4c82-b4d3-f2c488c825d7">
+						<flow-ref doc:name="UsageSFDCFlow" doc:id="8e47744d-308b-450b-943f-070de9fa856e" name="UsageSFDCFlow" />
+					</async>
+				</when>
+				<otherwise>
+					<logger level="INFO" doc:name="Logger" doc:id="5660bbfb-88e6-438d-847f-48fa1207cbbc" message="MessageID=#[vars.messageID] No data found in Cayanta. Further processing stopped" />
+				</otherwise>
+			</choice>
+			<sftp:move doc:name="MoveArchive" doc:id="4387d182-bd89-40b1-8a40-9299f5cb2bcf" config-ref="SFTP_Config" sourcePath="#[vars.filePath]" targetPath="${sftp.ReprocessArchiveFilePath}" overwrite="true" />
+		</foreach>
+	</flow>
+	<flow name="UsageSFDCFlow" doc:id="1c0036cf-e5c0-484b-8cf1-53e8aeb20708" >
+		<choice doc:name="reprocess?" doc:id="43d4e59a-a59c-498a-bb1b-d02a9fe2931f" >
+			<when expression='#[payload[0] pluck ($$ as String)  contains("Error_Message")]'>
+				<logger level="INFO" doc:name="Log_reprocessing" doc:id="dc0e681e-c331-465d-a10d-c4d8bcbdd30b" message="messageID=#[vars.messageID],  re-processing flow"/>
+				<ee:transform doc:name="sf_error_payload_transform" doc:id="9ee91a00-da53-4f9f-a2d5-011f85815987">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/csv
+---
+payload map ((item, index) -> {
+    "Account__r.Cayenta_Account_Number__c": if(item.Error_Message contains("Cayenta_Account_Number__c")) "" else item.'Account__r.Cayenta_Account_Number__c',
+    "Premises__r.Location__c": if(item.Error_Message contains("Location__c")) "" else item.'Premises__r.Location__c',
+    "Month_Prior__c": item."Month_Prior__c",
+    "Measure__c": item."Measure__c",
+    "Month_Cons__c": item."Month_Cons__c",
+    "External_ID__c": item."External_ID__c",
+    "Error_Message": item.errorMessage
+})]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Log_normal" doc:id="186d3921-3465-44a8-ac4d-0a9ed996e5af" message="messageID=#[vars.messageID], normal flow"/>
+				<ee:transform doc:name="sf_payload_transform" doc:id="e778105d-f55a-4786-8c48-cceb57b96e92">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/csv
+fun toUsage(data)={
+"Account__r.Cayenta_Account_Number__c": data.'ACCOUNT_NO',
+"Premises__r.Location__c": data.'LOCATION_NO' as Number,
+Month_Prior__c : data.'PERIOD',
+Measure__c : data.'MEASURE',
+Month_Cons__c : data.'MONTH_CONS',
+External_ID__c : [data.ACCOUNT_NO,data.LOCATION_NO,data.MEASURE,data.PERIOD] joinBy "_",
+Import_Source__c : "Cayenta Load"
+
+}
+---
+flatten(payload) map toUsage($)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Log_sf_transform_status" doc:id="1778977f-9f66-41cb-8b6b-a9a3172ffefa" message='messageID=#[vars.messageID],  transformation  done' />
+		<salesforce:create-job-bulk-api-v2 objectType="Usage__c" operation="upsert" doc:name="Create job bulk api v " doc:id="7cc7a899-4496-4b34-bcd9-96583f15baae" config-ref="Salesforce_Config" lineEnding="CRLF" externalIdFieldName="External_ID__c" readTimeout="3600000" readTimeoutUnit="MILLISECONDS"/>
+		<logger level="INFO" doc:name="Log_job_id" doc:id="be25c4ae-e01a-4b0a-9c27-107ada953d72" message="messageID=#[vars.messageID], jobId=#[payload.id]"/>
+		<until-successful maxRetries="100" doc:name="Until Successful" doc:id="6ac2eed7-2176-4ec4-964a-abeb92eb0d02" millisBetweenRetries="120000">
+			<salesforce:retrieve-job-failed-results-bulk-v2 doc:name="Retrieve job failed results bulk v " doc:id="152beec6-d80e-4219-ae1e-2a3ff55684fa" config-ref="Salesforce_Config" id="#[payload.id]" readTimeout="12000000" readTimeoutUnit="MILLISECONDS" />
+		</until-successful>
+		<try doc:name="Try" doc:id="7b7e2a4d-2c93-4cf1-a0a0-c691666354d3" >
+			<choice doc:name="Is_error_available?" doc:id="ed6a6462-3624-4dda-9a4f-d5fc7e50613d">
+			<when expression="#[!isEmpty(payload)]">
+				<ee:transform doc:name="Transform_error_to_csv" doc:id="214c8e5e-8081-4868-be43-d15a8f6d5245">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/csv
+---
+payload map ((item, index) -> {
+    "Account__r.Cayenta_Account_Number__c": item.originalFields.'Account__r.Cayenta_Account_Number__c',
+    "Premises__r.Location__c": item.originalFields.'Premises__r.Location__c',
+    "Month_Prior__c": item.originalFields.'Month_Prior__c',
+    "Measure__c": item.originalFields.'Measure__c',
+    "Month_Cons__c": item.originalFields.'Month_Cons__c',
+    "External_ID__c": item.originalFields.'External_ID__c',
+    "Error_Message": item.errorMessage
+})]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<logger level="INFO" doc:name="befor_write_log" doc:id="b7b440be-c5c6-4ef0-9534-8aab5948d3f5" message="messageID=#[vars.messageID],FailedRecords loading Start to sftp" />
+				<choice doc:name="Choice" doc:id="c786b6b2-4ac0-4f9b-8023-8cc7ac7d5a2a">
+						<when expression='#[vars.flowType == "Normal"]'>
+							<sftp:write doc:name="Write_error_sftp" doc:id="c106562b-0866-4c0a-80e7-541dbe53c30c" config-ref="SFTP_Config" path="#[p('sftp.ErrorFilePath') ++ (vars.fileName splitBy(&quot;.&quot;))[0] ++ &quot;_&quot; ++ vars.messageID as String ++ &quot;_&quot; ++ &quot;error.csv&quot;]" lock="true" />
+						</when>
+						<otherwise >
+							<sftp:write doc:name="Write_reprocess_error_sftp" doc:id="b8183f98-0234-4f0b-adef-657046fbcb1d" config-ref="SFTP_Config" path="#[p('sftp.ReprocessErrorFilePath') ++ (vars.fileName splitBy(&quot;.&quot;))[0] ++ &quot;_&quot; ++ vars.messageID as String ++ &quot;_&quot; ++ &quot;Reperror.csv&quot;]" lock="true" />
+						</otherwise>
+					</choice>
+				<logger level="INFO" doc:name="after_write_log" doc:id="9660105f-b486-48fa-ac3b-32a75e2b54b1" message="messageID=#[vars.messageID],FailedRecords are stored in sftp" />
+			</when>
+			<otherwise>
+				<logger level="INFO" doc:name="log_no_error" doc:id="77fd0509-e8d8-439e-a33c-df388d902718" message="messageID=#[vars.messageID],there are no error records" />
+			</otherwise>
+		</choice>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="5c23eb8f-4b75-41e4-8c6e-0fcdfc51ee76" type="ANY">
+					<logger level="INFO" doc:name="log_before_sftp_error" doc:id="f7047487-ac6f-4140-b2fa-3afea5b74985" message="#['Connection issue while loading Errors in Error folder']"/>
+					<ee:transform doc:name="sftp_transform" doc:id="92010b4a-5966-40b0-9bd2-a8db07d583b0" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"Error Message": error.description,
+	"Error Type": error.errorType.identifier,
+	"Flow Name": vars.flowName,
+	"Message Id": vars.messageID
+	
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<logger level="INFO" doc:name="log_sftp_error" doc:id="6b6c61de-f23c-4124-8c70-0b7a5f111de1" message="#[payload]"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+	<flow name="UsageHTTPFlow" doc:id="4658dc78-e3b9-48d0-92f0-a16bedc1aabf" >
+		<http:listener doc:name="Listener" doc:id="cb081a7b-557d-4089-b9da-558fc696b842" config-ref="HTTP_Listener_config" path="${http.Usagepath}" >
+			<http:response statusCode="200" />
+		</http:listener>
+		<logger level="INFO" doc:name="Logger" doc:id="8e4a9497-5754-442d-abd6-821a9cd571a3" message="Request received from AdHoc HTTP endpoint for following path: ${http.Usagepath}" />
+		<choice doc:name="reprocessing?" doc:id="711b723a-94dd-4102-908b-5839146c277c" >
+			<when expression='#[message.attributes.flowType == "Normal"]'>
+				<flow-ref doc:name="NormalFlowReference" doc:id="1d5f3b0e-a716-4dda-bead-74a40f8e98e6" name="UsageFlow" />
+			</when>
+			<otherwise >
+				<flow-ref doc:name="ReProcesingReference" doc:id="733db31d-c04b-4ea5-9f99-3c32d06e72a2" name="UsageReprocessingFlow"/>
+			</otherwise>
+		</choice>
+		<ee:transform doc:name="Adhoc out message" doc:id="9138b52d-b33c-4dc8-89ff-3239b02a14e3" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"messageId" : vars.messageID,
+	"message" : "hg-cyt-sf-usage-app adhoc triggered, please check logs"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

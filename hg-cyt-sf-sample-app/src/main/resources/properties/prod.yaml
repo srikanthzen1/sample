@@ -1,0 +1,29 @@
+#Mule Dev
+salesforce.ConsumerKey : "![ybaiOnA4NdV+zf55SB3gdJvJiu3UYHVF4ad8NEQ1ahb1ZBT7K3Yo+iByWVp0TyPvQrsv2sA044vO816D1Sjbr4EcYhvcNXqEZ5jD01rLoZ4IuEfv8MvL1cksVZWov32J]"
+salesforce.Keystorepassword : "![S5vh17SlTmT9oKVGNG9aGg==]"
+salesforce.principal : hgprod.mulesoft.integration@zensar.com
+salesforce.Keystore : "security/prod-salesforce.jks"
+salesforce.certificatealias : self_signed_certificate
+salesforce.Tokenendpoint : https://login.salesforce.com/services/oauth2/token
+ 
+#HTTP
+http.host: "0.0.0.0"
+http.port: "8082"
+http.Usagepath: "/api/Usage"
+
+#SFTP
+sftp.Host: '10.100.101.111'
+sftp.Port: '8020'
+sftp.UserName: 'SA_SFTP_MS_CAY_SF_PR'
+sftp.Password: "![eCFQ+vXz/unzyGFld1ArtvY92fJoSIw1SX6b03mwSUI=]"
+sftp.WorkingDirectory: '/D:/MS_CAY_SF/cayprod/'
+sftp.ArchiveFilePath: '/D:/MS_CAY_SF/cayprod/Archive/'
+sftp.ErrorFilePath: '/D:/MS_CAY_SF/cayprod/Error/'
+sftp.ReprocessWorkingDirectory: '/D:/MS_CAY_SF/cayprod/Error/'
+sftp.ReprocessArchiveFilePath: '/D:/MS_CAY_SF/cayprod/ReprocessArchive/'
+sftp.ReprocessErrorFilePath: '/D:/MS_CAY_SF/cayprod/ReprocessError/'
+sftp.RPAWorkingDirectory: '/D:/MS_CAY_SF/cayprod/AccountArchive'
+sftp.RPCWorkingDirectory: '/D:/MS_CAY_SF/cayprod/ContactArchive'
+
+sftp.UsagePattern: "SF_usage*"
+sftp.UsageCron: "0 0 12 * * ?"

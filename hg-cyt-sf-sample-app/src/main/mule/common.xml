@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+	<configuration-properties doc:name="Configuration properties" doc:id="42f23481-0683-4e00-9b2a-31fe895570f8" file="properties/${env}.yaml" />
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="44634019-f628-4ec9-8c39-932e977d38d5" >
+		<http:listener-connection host="${http.host}" port="${http.port}" />
+	</http:listener-config>
+	<sftp:config name="SFTP_Config" doc:name="SFTP Config" doc:id="825854ab-597d-4d6f-8235-10a6d9fb00a8" >
+		<sftp:connection host="${sftp.Host}" port="${sftp.Port}" username="${sftp.UserName}" password="${secure::sftp.Password}" >
+			<reconnection >
+				<reconnect />
+			</reconnection>
+		</sftp:connection>
+	</sftp:config>
+	<configuration doc:name="Configuration" doc:id="4049dd86-faf4-4e87-b51e-922a4a1f657a" defaultErrorHandler-ref="commonError_Handler" />
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="aa48cae5-ca09-41b6-a6a5-02f2056d9b34" >
+		<salesforce:jwt-connection consumerKey="${secure::salesforce.ConsumerKey}" keyStore="${salesforce.Keystore}" storePassword="${secure::salesforce.Keystorepassword}" certificateAlias="${salesforce.certificatealias}" principal="${salesforce.principal}" tokenEndpoint="${salesforce.Tokenendpoint}" />
+	
+</salesforce:sfdc-config>
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="473a598d-382a-4250-85bc-7acae1248bdd" key="${mule.key}" file="properties/${env}.yaml"/>
+	<error-handler name="commonError_Handler" doc:id="b93df5dd-74f0-4604-81df-9f3d082008b2" >
+		<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="60d767f4-f674-4b01-af31-2c3316ce0b1e" >
+			<logger level="INFO" doc:name="Logger" doc:id="3af0509d-c72e-478a-bb5f-cdf846377cda" message='#["There has been an error from SFTP to salesforce on flow name-" ++ vars.flowName as String default "" ++ ".Please find below the deatils*******************"]'/>
+			<ee:transform doc:name="Transform Message" doc:id="6df970ea-4782-4a04-b7f7-8c74db8e7438" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"Error Message": error.description,
+	"Error Type": error.errorType.identifier,
+	"Flow Nmae": vars.flowName,
+	"Message Id": vars.messageID
+	
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<logger level="INFO" doc:name="Logger" doc:id="df5a0bb1-28bb-41c0-b8a2-8e4e14545df6" message="#[payload]"/>
+		</on-error-propagate>
+	</error-handler>
+</mule>
